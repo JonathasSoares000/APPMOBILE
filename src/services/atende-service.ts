@@ -1,8 +1,10 @@
 import {
+    addDriverOrder,
     companyCodeMock,
     driverOrdersMock,
     generateCompanyCode,
     rideRequestsMock,
+    subscribeDriverOrders,
     tripHistoryMock,
 } from '@/services/mock-data';
 import { CompanyCode, DriverOrder, RequestType, RideRequest, TripRecord } from '@/types';
@@ -16,7 +18,15 @@ export function getRideRequests(): RideRequest[] {
 }
 
 export function getDriverOrders(): DriverOrder[] {
-  return driverOrdersMock;
+  return [...driverOrdersMock];
+}
+
+export function subscribeDriverOrdersChange(listener: () => void) {
+  return subscribeDriverOrders(listener);
+}
+
+export function addDriverOrderToQueue(order: DriverOrder) {
+  addDriverOrder(order);
 }
 
 export function getTripHistory(): TripRecord[] {

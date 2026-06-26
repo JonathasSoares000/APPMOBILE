@@ -27,40 +27,24 @@ export const rideRequestsMock: RideRequest[] = [
   },
 ];
 
-export const driverOrdersMock: DriverOrder[] = [
-  {
-    id: 'DRV-101',
-    passenger: 'Clara Souza',
-    pickup: 'Portaria 3',
-    dropoff: 'Terminal 1',
-    type: 'urgent',
-    status: 'waiting',
-    requestedAt: '08:10',
-    boardingCode: 'BORD-359',
-    finishCode: 'FIN-701',
-    distanceKm: 9.2,
-    durationMin: 18,
-    baseFare: 12.5,
-    currentFare: 25.8,
-    routeNote: 'Tráfego leve, rota mais curta disponível',
-  },
-  {
-    id: 'DRV-102',
-    passenger: 'Rafael Lima',
-    pickup: 'Torre B',
-    dropoff: 'Laboratório',
-    type: 'scheduled',
-    status: 'waiting',
-    requestedAt: '09:00',
-    boardingCode: 'BORD-420',
-    finishCode: 'FIN-894',
-    distanceKm: 6.4,
-    durationMin: 14,
-    baseFare: 10.0,
-    currentFare: 18.2,
-    routeNote: 'Rota agendada; poderá haver alteração por engarrafamento',
-  },
-];
+export let driverOrdersMock: DriverOrder[] = [];
+const driverOrdersListeners = new Set<() => void>();
+
+export function subscribeDriverOrders(listener: () => void) {
+  driverOrdersListeners.add(listener);
+  return () => driverOrdersListeners.delete(listener);
+}
+
+function notifyDriverOrdersListeners() {
+  for (const listener of driverOrdersListeners) {
+    listener();
+  }
+}
+
+export function addDriverOrder(order: DriverOrder) {
+  driverOrdersMock.push(order);
+  notifyDriverOrdersListeners();
+}
 
 export const tripHistoryMock: TripRecord[] = [
   {

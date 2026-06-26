@@ -3,7 +3,7 @@ import { SectionCard } from '@/components/section-card';
 import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { getDriverOrders } from '@/services/atende-service';
+import { getDriverOrders, subscribeDriverOrdersChange } from '@/services/atende-service';
 import type { DriverOrder } from '@/types';
 import { openNavigation } from '@/utils/navigation';
 import * as Location from 'expo-location';
@@ -92,7 +92,39 @@ export default function MotoristaScreen() {
     setActiveOrder({ ...activeOrder, status: 'in_progress' });
   };
 
+  const handleCancel = () => {
+    if (!activeOrder) return;
+
+    Alert.alert(
+      'Cancelar corrida',
+      'Deseja cancelar esta corrida?',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: () => {
+            setOrders((prev) =>
+              prev.map((item) =>
+                item.id === activeOrder.id ? { ...item, status: 'waiting' } : item,
+              ),
+            );
+            setActiveOrder(null);
+            setFinishCode('');
+            setBoardingCode('');
+            setFinalFare(0);
+          },
+        },
+      ],
+    );
+  };
+
   useEffect(() => {
+    const unsubscribe = subscribeDriverOrdersChange(() => {
+      setOrders(getDriverOrders());
+    });
+    setOrders(getDriverOrders());
+
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -114,6 +146,8 @@ export default function MotoristaScreen() {
         setMapModule(null);
       }
     })();
+
+    return unsubscribe;
   }, []);
 
   const handleFinish = () => {
@@ -227,6 +261,7 @@ export default function MotoristaScreen() {
                 <PrimaryButton title="Iniciar corrida" onPress={handleStart} secondary />
               ) : null}
               <PrimaryButton title="Finalizar corrida" onPress={handleFinish} secondary />
+              <PrimaryButton title="Cancelar corrida" onPress={handleCancel} secondary />
             </View>
           </SectionCard>
         ) : null}
@@ -236,36 +271,42 @@ export default function MotoristaScreen() {
         </ThemedText>
 
         <View style={styles.list}>
-          {orders.map((order) => (
-            <SectionCard key={order.id} style={styles.orderCard}>
-              <View style={styles.header}>
-                <ThemedText type="smallBold">{order.passenger}</ThemedText>
-                <StatusPill label={order.type === 'urgent' ? 'Urgente' : 'Agendada'} status={order.type} />
-              </View>
-              <ThemedText type="small" style={styles.route}>
-                {order.pickup} → {order.dropoff}
-              </ThemedText>
-              <ThemedText type="small" style={styles.metaText}>
-                {order.distanceKm.toFixed(1)} km • {order.durationMin} min • Código de embarque: {order.boardingCode}
-              </ThemedText>
-              <View style={styles.orderOptions}>
-                <View style={styles.appSelector}>
-                  {['auto', 'waze', 'google', 'apple'].map((app) => (
-                    <Pressable
-                      key={app}
-                      onPress={() => setSelectedApp(app as 'auto' | 'waze' | 'google' | 'apple')}
-                      style={[styles.appButton, selectedApp === app && styles.appButtonSelected]}
-                    >
-                      <ThemedText type="small" style={selectedApp === app ? styles.appButtonTextSelected : undefined}>
-                        {app === 'auto' ? 'Auto' : app.charAt(0).toUpperCase() + app.slice(1)}
-                      </ThemedText>
-                    </Pressable>
-                  ))}
-                </View>
-                <PrimaryButton title="Aceitar" onPress={() => handleAccept(order.id)} />
-              </View>
+          {orders.length === 0 ? (
+            <SectionCard style={styles.orderCard}>
+              <ThemedText type="default">Nenhuma corrida disponível no momento.</ThemedText>
             </SectionCard>
-          ))}
+          ) : (
+            orders.map((order) => (
+              <SectionCard key={order.id} style={styles.orderCard}>
+                <View style={styles.header}>
+                  <ThemedText type="smallBold">{order.passenger}</ThemedText>
+                  <StatusPill label={order.type === 'urgent' ? 'Urgente' : 'Agendada'} status={order.type} />
+                </View>
+                <ThemedText type="small" style={styles.route}>
+                  {order.pickup} → {order.dropoff}
+                </ThemedText>
+                <ThemedText type="small" style={styles.metaText}>
+                  {order.distanceKm.toFixed(1)} km • {order.durationMin} min • Código de embarque: {order.boardingCode}
+                </ThemedText>
+                <View style={styles.orderOptions}>
+                  <View style={styles.appSelector}>
+                    {['auto', 'waze', 'google', 'apple'].map((app) => (
+                      <Pressable
+                        key={app}
+                        onPress={() => setSelectedApp(app as 'auto' | 'waze' | 'google' | 'apple')}
+                        style={[styles.appButton, selectedApp === app && styles.appButtonSelected]}
+                      >
+                        <ThemedText type="small" style={selectedApp === app ? styles.appButtonTextSelected : undefined}>
+                          {app === 'auto' ? 'Auto' : app.charAt(0).toUpperCase() + app.slice(1)}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <PrimaryButton title="Aceitar" onPress={() => handleAccept(order.id)} />
+                </View>
+              </SectionCard>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
