@@ -5,7 +5,7 @@ import { StatusPill } from '@/components/status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { createCompanyCode, createTripRecord, getCompanyCode, getTripHistory } from '@/services/atende-service';
+import { addDriverOrderToQueue, createCompanyCode, createTripRecord, getCompanyCode, getTripHistory } from '@/services/atende-service';
 import type { RequestType, TripRecord } from '@/types';
 import { copyToClipboard } from '@/utils/clipboard';
 import { requestNotificationPermissions, sendDriverNotification } from '@/utils/notifications';
@@ -186,11 +186,6 @@ export default function GestorScreen() {
       return;
     }
 
-    const hasPermission = await requestNotificationPermissions();
-    if (hasPermission) {
-      await sendDriverNotification(`Solicitação de corrida de ${employeeName}: ${pickup} → ${dropoff}`);
-    }
-
     const record = createTripRecord(
       employeeName,
       companyCode.code,
@@ -199,12 +194,37 @@ export default function GestorScreen() {
       requestType,
       estimatedRoutePrice,
     );
+
+    const newDriverOrder = {
+      id: `DRV-${Math.floor(100 + Math.random() * 900)}`,
+      passenger: employeeName,
+      pickup: pickup || 'Origem não informada',
+      dropoff: dropoff || 'Destino não informado',
+      type: requestType,
+      status: 'waiting' as const,
+      requestedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      boardingCode: `BORD-${Math.floor(100 + Math.random() * 900)}`,
+      finishCode: `FIN-${Math.floor(100 + Math.random() * 900)}`,
+      distanceKm: estimatedDistanceKm,
+      durationMin: Math.max(1, Math.round(estimatedDistanceKm * 2)),
+      baseFare: parseFloat((estimatedRoutePrice * 0.35).toFixed(2)),
+      currentFare: estimatedRoutePrice,
+      routeNote: requestType === 'urgent' ? 'Corrida urgente, prioridade máxima' : 'Corrida agendada; confirme o horário.',
+    };
+
+    addDriverOrderToQueue(newDriverOrder);
+
+    const hasPermission = await requestNotificationPermissions();
+    if (hasPermission) {
+      await sendDriverNotification(`Solicitação de corrida de ${employeeName}: ${pickup} → ${dropoff}`);
+    }
+
     setHistory((prev) => [record, ...prev]);
     setEmployeeName('');
     setPickup('Recepção');
     setDropoff('Sala de reuniões');
     setDropoffSelected(false);
-    Alert.alert('Solicitação enviada', 'A corrida foi cadastrada no histórico.');
+    Alert.alert('Solicitação enviada', 'A corrida foi cadastrada no histórico e o motorista foi notificado.');
   };
 
   return (
